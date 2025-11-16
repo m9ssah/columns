@@ -25,15 +25,18 @@
     
 # Colors:
     black: 		.word 0x00000000        # black, misc
-    blue:       .word 0x00111053        # penn blue/navy color, bg
     indigo:     .word 0x00432AFF        # indigo/purple color, gem
-    violet:     .word 0x00F33F9C        # violet/pink, gen
-    pink:       .word 0x00FF7DFB        # pink gem
-    orange:     .word 0x00FFA228        # orange gem
-    yellow:     .word 0x00F7D111        # mustard/yellow, gem
-    green:      .word 0x003FFF85        # light green color, gem
     cyan:       .word 0x006FFFFF        # cyan/celeste color, bg
     white:      .word 0x00FFFFFF        # white color, misc
+
+# Gem Colors:    
+    gem_palette:
+        .word 0x00111053        # penn blue/navy color
+        .word 0x00F33F9C        # violet/pink
+        .word 0x00FF7DFB        # pink
+        .word 0x00FFA228        # orange
+        .word 0x00F7D111        # mustard/yellow
+        .word 0x003FFF85        # light green color
     
 # Game Scene Constants:
 	grid_w:     .word 12           # game field width
@@ -60,8 +63,8 @@
 ##############################################################################
 
 # Active falling col:
-    initial:        .word 548
-    curr_colors:    
+    initial:        .word 676
+    curr_colors:    .space 12       # because we are using 3 gems for each generated column
     
 # Game state:
     score:          .word 0
@@ -95,16 +98,9 @@ main:       # Initialize the game
     
     jal init_board
     jal init_game_field
-    jal draw_columns
+    jal generate_first_column
+    j game_loop
 
-draw_columns:
-    lw $t9, initial
-    add $t9, $s0, $t9
-    lw $a3, pink
-    sw $a3, 0($t9)
-    li $v0, 10
-    syscall
-    
     
 #################################################################################
 # initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
@@ -216,10 +212,64 @@ game_field_end:
     jr $ra
 
 #################################################################################
-# draw columns
+# draw first column
 #################################################################################
+    
+generate_first_column:
+    move $t0, $s0     # base address 
+    lw   $t1, initial   # starter position offset
+    
+    la $a2, gem_palette     # gem array
+    la $a3, curr_colors     # will store the 3 random colors in here
+    
+    add $t1, $t0, $t1   # starting index to draw
+    li $t3, 0   # loop var (0:2)
+    
+r_gen_loop:
+    beq $t3, 3, gend_gen_loop
+    li   $v0, 42
+    li   $a0, 0
+    li   $a1, 6
+    syscall                     # random index now in $a0
+    
+    sll $t6, $a0, 2
+    add $t6, $t6, $a2
+    lw $t8, 0($t6)              # load selected color word
+    
+    sll $t9, $t3, 2             # offset
+    add $t9, $t9, $a3           # curr_colors + offset
+    sw $t8, 0($t9)              # store color
+    
+    addi $t3, $t3, 1
+    j r_gen_loop
 
+gend_gen_loop:
+    li $t3, 0                   # i = 0:3
+    
+draw_loop_top:
+    beq $t3, 3, draw_loop_end   # exit when i == 3
+    
+    sll $t9, $t3, 2             # load curr_colors[i]
+    add $t9, $t9, $a3
+    lw $t8, 0($t9)             # load color from curr_colors[i]
+    
+    # compute vram address for curr gem
+    move $t6, $t1           # start with base drawing position
+    sll $t7, $t3, 7        # i * 128 (one row down per gem)
+    add $t6, $t6, $t7      # final address
+    
+    # store gem color
+    sw $t8, 0($t6)        # draw the gem
+    
+    addi $t3, $t3, 1
+    j draw_loop_top
 
+draw_loop_end:
+    jr $ra
+    
+#################################################################################
+# game loop
+#################################################################################
     
 game_loop:
     # 1a. Check if key has been pressed
