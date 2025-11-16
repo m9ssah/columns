@@ -62,7 +62,7 @@
     curr_y:         .word 0
     curr_colors:    
     
-# Game state:hhkj
+# Game state:
     score:          .word 0
     jewels:         .word 0
 
@@ -89,8 +89,8 @@ main:       # Initialize the game
     lw $s1, grid_w          # game field width = s1
     lw $s2, grid_h          # game field height = s2
     
-    lw  $s3, frame_cols         
-    lw  $s4, frame_rows
+    lw $s3, frame_cols         
+    lw $s4, frame_rows
     
     jal init_board
     
@@ -99,16 +99,20 @@ main:       # Initialize the game
 #################################################################################
 
 init_board:
-    move $t0, $s0          # $t0 = base address of display
+    move $t0, $s0      # $t0 = base address of display
     lw $a0, cyan           # color A (cyan)
     lw $a1, indigo         # color B (indigo)
-    li $t1, 1              # tile_row = 0..29
+
+    li $t1, 1              # tile_row = 1..30
 
 row_loop:
-    li $t2, 0              # tile_col = 0..14, reinitialize every loop iteration
+    bgt $t1, 30, init_board_end
+    li $t2, 1              # tile_col = 1..18
 
 col_loop:
-    # determines which color to use so that it can achieve the checkered pattern
+    bgt $t2, 18, next_row
+    
+    # determines which color is next (to achieve checkered look)
     add  $t3, $t1, $t2     # sum of row and col
     andi $t3, $t3, 1       # get least significant bit
     beq  $t3, $zero, use_cyan
@@ -119,31 +123,30 @@ use_cyan:
     move $t6, $a0          # use cyan
     
 color_selected:
-    # Calculate starting address for this tile
-    # address = base + (tile_row * 8 * 256 * 4) + (tile_col * 8 * 4)
-    # address = base + (tile_row * 8192) + (tile_col * 32)
+    # calculate
+    # pixel_y = tile_row * 128
+    # pixel_x = tile_col * 4
     
-    move $t9, $t0          # start with base address
+    sll $t7, $t1, 7        # converting to correct index (y)
+    sll $t8, $t2, 2        # basically converting to correct index (x)
+
     
-    # Add row offset: tile_row * 8 * 256 * 4 = tile_row * 8192
-    move $t7, $t1
-    sll  $t7, $t7, 13      # multiply by 8192 (2^13)
-    add  $t9, $t9, $t7
+    # calculate offset:
+    add $t7, $t7, $t8      # y  = y + x
     
-    # Add col offset: tile_col * 8 * 4 = tile_col * 32
-    move $t8, $t2
-    sll  $t8, $t8, 5       # multiply by 32 (2^5)
-    add  $t9, $t9, $t8
+    add $t9, $t0, $t7      # $t9 = starting address of tile (y)
     
-    # Now fill the 8x8 tile with the selected color
-    li $s7, 0              # pixel_row = 0..7
+    # now fill the tile with the selected color
+    li $s7, 0              # pixel_row = 0 to 7
 
 tile_row_loop:
-    beq $s7, 8, tile_done
-    li $s6, 0              # pixel_col = 0..7
+    li $t5, 1
+    beq $s7, $t5, tile_done
+    li $s6, 0              # pixel_col = 0 to 7
 
 tile_col_loop:
-    beq $s6, 8, tile_next_row
+    li $t5, 1
+    beq $s6, $t5, tile_next_row
     
     sw $t6, 0($t9)         # store color at current pixel
     addi $t9, $t9, 4       # move to next pixel (right)
@@ -151,26 +154,21 @@ tile_col_loop:
     j tile_col_loop
 
 tile_next_row:
-    # Move to next row: add (256 - 8) * 4 = 992 bytes
-    addi $t9, $t9, 992
+    li $t5, 128
+    add $t9, $t9, $t5
     addi $s7, $s7, 1
     j tile_row_loop
-
+    
 tile_done:
     addi $t2, $t2, 1       # next tile column
-    beq  $t2, 15, next_row # if we've done 15 columns, go to next row
     j col_loop
 
 next_row:
     addi $t1, $t1, 1       # next tile row
-    beq  $t1, 30, init_board_end # if we've done 30 rows, we're done
     j row_loop
 
 init_board_end:
-    li $v0, 10 # terminate the program gracefully
-    syscall
-
-
+    jr $ra
 
 init_game_field:
     
