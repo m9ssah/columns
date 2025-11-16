@@ -34,14 +34,14 @@
     white:      .word 0x00FFFFFF        # white color, misc
     
 # Game Scene Constants:
-	grid_w:     .word 12           # game field width TODO fix these
+	grid_w:     .word 12           # game field width
 	grid_h:     .word 24           # game field height
 	
 	unit_size:  .word 8            # gem size
     dspl_width: .word 256
 	dspl_height:.word 256
 
-	frame_cols: .word 18       # TODO: fix these
+	frame_cols: .word 18
 	frame_rows: .word 30
 	
 	frame_x0:   .word 4        # offsets
@@ -130,7 +130,6 @@ color_selected:
     sll $t7, $t1, 7        # converting to correct index (y)
     sll $t8, $t2, 2        # basically converting to correct index (x)
 
-    
     # calculate offset:
     add $t7, $t7, $t8      # y  = y + x
     
@@ -168,9 +167,44 @@ next_row:
     j row_loop
 
 init_board_end:
-    jr $ra
+    j init_game_field       # questionable, probably wrong TODO Check if this is ok
+
+#################################################################################
+# initialize game field ONLY RUNS ONCE
+#################################################################################
 
 init_game_field:
+    # starting from (5,5), we want to draw a 12x20 rectangle
+    move $t0, $s0       # t0 address display, i dont think this is necessary\
+    addi $t2, $t0, 528  # initialize starting position
+    
+    lw $a0 grid_w       # width of field  (12)
+    lw $a1 grid_h       # height of field (24)
+    lw $a2, black       # initialize field color
+    
+    li $t3, 0           # loop variable
+
+draw_game_field:
+    beq $a1, $t3, game_field_end        # while t3 != 24:
+    li $t4, 0                           # loop variable
+
+draw_field_line:
+    beq $a0, $t4, field_line_end        # while t4 != 12:
+    sw $a2, 0($t2)
+    addi $t2, $t2, 4                    # move to next row
+    addi $t4, $t4, 1                    # t4++
+    j draw_field_line
+
+field_line_end:
+    addi $t2, $t2, 80
+    addi $t3, $t3, 1                    # t3++
+    j draw_game_field
+    
+game_field_end:
+    li $v0, 10
+    syscall
+
+
     
 game_loop:
     # 1a. Check if key has been pressed
