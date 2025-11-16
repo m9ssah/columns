@@ -60,8 +60,7 @@
 ##############################################################################
 
 # Active falling col:
-    curr_x:         .word 0
-    curr_y:         .word 0
+    initial:        .word 548
     curr_colors:    
     
 # Game state:
@@ -95,6 +94,17 @@ main:       # Initialize the game
     lw $s4, frame_rows
     
     jal init_board
+    jal init_game_field
+    jal draw_columns
+
+draw_columns:
+    lw $t9, initial
+    add $t9, $s0, $t9
+    lw $a3, pink
+    sw $a3, 0($t9)
+    li $v0, 10
+    syscall
+    
     
 #################################################################################
 # initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
@@ -169,7 +179,7 @@ next_row:
     j row_loop
 
 init_board_end:
-    j init_game_field       # questionable, probably wrong TODO Check if this is ok
+    jr $ra
 
 #################################################################################
 # initialize game field ONLY RUNS ONCE
@@ -203,8 +213,11 @@ field_line_end:
     j draw_game_field
     
 game_field_end:
-    li $v0, 10
-    syscall
+    jr $ra
+
+#################################################################################
+# draw columns
+#################################################################################
 
 
     
