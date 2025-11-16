@@ -25,12 +25,14 @@
     
 # Colors:
     black: 		.word 0x00000000        # black, misc
-    blue:       .word 0x000E2258        # penn blue/navy color, bg
+    blue:       .word 0x00111053        # penn blue/navy color, bg
     indigo:     .word 0x00432AFF        # indigo/purple color, gem
-    violet:     .word 0x00FF76E6        # violet/pink, gen
-    mustard:    .word 0x00FFD767        # mustard/yellow, gem
-    green:      .word 0x0086FA9F        # light green color, gem
-    cyan:       .word 0x009EE6E6        # cyan/celeste color, bg
+    violet:     .word 0x00F33F9C        # violet/pink, gen
+    pink:       .word 0x00FF7DFB        # pink gem
+    orange:     .word 0x00FFA228        # orange gem
+    yellow:     .word 0x00F7D111        # mustard/yellow, gem
+    green:      .word 0x003FFF85        # light green color, gem
+    cyan:       .word 0x006FFFFF        # cyan/celeste color, bg
     white:      .word 0x00FFFFFF        # white color, misc
     
 # Game Scene Constants:
