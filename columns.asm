@@ -62,7 +62,7 @@
     curr_y:         .word 0
     curr_colors:    
     
-# Game state:
+# Game state:hhkj
     score:          .word 0
     jewels:         .word 0
 
@@ -89,15 +89,90 @@ main:       # Initialize the game
     lw $s1, grid_w          # game field width = s1
     lw $s2, grid_h          # game field height = s2
     
-    lw  $s3, frame_cols
+    lw  $s3, frame_cols         
     lw  $s4, frame_rows
     
-    lw  $s5, frame_x0
-    lw  $s6, frame_y0
+    jal init_board
     
-    jal init_border      # initialize game border
-    jal init_field      # initialize game field
-    jal draw_field      # draw the game field (checker board?)
+#################################################################################
+# initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
+#################################################################################
+
+init_board:
+    move $t0, $s0          # $t0 = base address of display
+    lw $a0, cyan           # color A (cyan)
+    lw $a1, indigo         # color B (indigo)
+    li $t1, 1              # tile_row = 0..29
+
+row_loop:
+    li $t2, 0              # tile_col = 0..14, reinitialize every loop iteration
+
+col_loop:
+    # determines which color to use so that it can achieve the checkered pattern
+    add  $t3, $t1, $t2     # sum of row and col
+    andi $t3, $t3, 1       # get least significant bit
+    beq  $t3, $zero, use_cyan
+    move $t6, $a1          # use indigo
+    j color_selected
+
+use_cyan:
+    move $t6, $a0          # use cyan
+    
+color_selected:
+    # Calculate starting address for this tile
+    # address = base + (tile_row * 8 * 256 * 4) + (tile_col * 8 * 4)
+    # address = base + (tile_row * 8192) + (tile_col * 32)
+    
+    move $t9, $t0          # start with base address
+    
+    # Add row offset: tile_row * 8 * 256 * 4 = tile_row * 8192
+    move $t7, $t1
+    sll  $t7, $t7, 13      # multiply by 8192 (2^13)
+    add  $t9, $t9, $t7
+    
+    # Add col offset: tile_col * 8 * 4 = tile_col * 32
+    move $t8, $t2
+    sll  $t8, $t8, 5       # multiply by 32 (2^5)
+    add  $t9, $t9, $t8
+    
+    # Now fill the 8x8 tile with the selected color
+    li $s7, 0              # pixel_row = 0..7
+
+tile_row_loop:
+    beq $s7, 8, tile_done
+    li $s6, 0              # pixel_col = 0..7
+
+tile_col_loop:
+    beq $s6, 8, tile_next_row
+    
+    sw $t6, 0($t9)         # store color at current pixel
+    addi $t9, $t9, 4       # move to next pixel (right)
+    addi $s6, $s6, 1
+    j tile_col_loop
+
+tile_next_row:
+    # Move to next row: add (256 - 8) * 4 = 992 bytes
+    addi $t9, $t9, 992
+    addi $s7, $s7, 1
+    j tile_row_loop
+
+tile_done:
+    addi $t2, $t2, 1       # next tile column
+    beq  $t2, 15, next_row # if we've done 15 columns, go to next row
+    j col_loop
+
+next_row:
+    addi $t1, $t1, 1       # next tile row
+    beq  $t1, 30, init_board_end # if we've done 30 rows, we're done
+    j row_loop
+
+init_board_end:
+    li $v0, 10 # terminate the program gracefully
+    syscall
+
+
+
+init_game_field:
     
 game_loop:
     # 1a. Check if key has been pressed
@@ -112,96 +187,6 @@ game_loop:
 	# 4. Sleep
 
     # 5. Go back to Step 1
-    j game_loop
-    
-    
-init_border:
-    move $t0, $s0       # display base
-
-    move $t1, $s3       # t1 = frame col
-    move $t2, $s4       # t2 = frame rows
-    move $t3, $s5       # t3 = frame_x0
-    move $t4, $s6       # t4 = frame_y0
-    
-    # colors
-    lw $t5, cyan
-    lw $t6, indigo
-    
-    # row index 
-    li  $s7, 0
-
-border_row_loop:
-    bge $s7, $t2, border_done       # stop when i == frame_rows 
+    # j game_loop
 
 
-border_done:
-
-
-
-init_field:
-
-
-draw_field:
-
-
-draw_line:
-    sll $a0, $a0, 2         # multiply the X coordinate by 4 to get the horizontal offset
-    add $t2, $t0, $a0       # add this horizontal offset to $t0, store the result in $t2
-    sll $a1, $a1, 7         # multiply the Y coordinate by 128 to get the vertical offset
-    add $t2, $t2, $a1       # add this vertical offset to $t2
-    
-    # Make a loop to draw a line.
-    sll $a2, $a2, 2         # calculate the difference between the starting value for $t2 and the end value.
-    add $t3, $t2, $a2       # set stopping location for $t2
-    line_loop_start:
-    beq $t2, $t3, line_loop_end  # check if $t0 has reached the final location of the line
-    sw $t1, 0( $t2 )        # paint the current pixel red
-    addi $t2, $t2, 4        # move $t0 to the next pixel in the row.
-    j line_loop_start            # jump to the start of the loop
-    line_loop_end:
-    jr $ra                  # return to the calling program.
-
-
-##  - Draws a rectangle at a given X and Y coordinate 
-
-# $a0 = the x coordinate of the line
-# $a1 = the y coordinate of the line
-# $a2 = the width of the rectangle
-# $a3 = the height of the rectangle
-draw_rect:
-# no registers to initialize (use $a3 as the loop variable)
-rect_loop_start:
-    beq $a3, $zero, rect_loop_end   # test if the stopping condition has been satisfied
-    addi $sp, $sp, -4               # move the stack pointer to an empty location
-    sw $ra, 0($sp)                  # push $ra onto the stack
-    addi $sp, $sp, -4               # move the stack pointer to an empty location
-    sw $a0, 0($sp)                  # push $a0 onto the stack
-    addi $sp, $sp, -4               # move the stack pointer to an empty location
-    sw $a1, 0($sp)                  # push $a1 onto the stack
-    addi $sp, $sp, -4               # move the stack pointer to an empty location
-    sw $a2, 0($sp)                  # push $a2 onto the stack
-    
-    jal draw_line                   # call the draw_line function.
-    
-    lw $a2, 0($sp)                  # pop $a2 from the stack
-    addi $sp, $sp, 4                # move the stack pointer to the top stack element
-    lw $a1, 0($sp)                  # pop $a1 from the stack
-    addi $sp, $sp, 4                # move the stack pointer to the top stack element
-    lw $a0, 0($sp)                  # pop $a0 from the stack
-    addi $sp, $sp, 4                # move the stack pointer to the top stack element
-    lw $ra, 0($sp)                  # pop $ra from the stack
-    addi $sp, $sp, 4                # move the stack pointer to the top stack element
-    addi $a1, $a1, 1                # move the Y coordinate down one row in the bitmap
-    addi $a3, $a3, -1               # decrement loop variable $a3 by 1
-    j rect_loop_start               # jump to the top of the loop.
-    rect_loop_end:
-    jr $ra                          # return to the calling program.
-
-draw_square:
-    lw $t1, 0($sp)      # ccolor from caller
-    addi $a2, $zero, 1  # width = 1
-    addi $a3, $zero, 1  # height = 1
-    
-    jal draw_line
-    jr $ra
-    
