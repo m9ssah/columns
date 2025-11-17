@@ -100,7 +100,25 @@ main:       # Initialize the game
     jal init_game_field
     jal generate_first_column
     j game_loop
+    
+#################################################################################
+# game loop
+#################################################################################
+    
+game_loop:
+    # 1a. Check if key has been pressed
+    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    lw $t8, 0($t0)                  # Load first word from keyboard
+    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+    
+    # 1b. Check which key has been pressed
+    # 2a. Check for collisions
+	# 2b. Update locations (capsules)
+	# 3. Draw the screen
+	# 4. Sleep
 
+    # 5. Go back to Step 1
+    # j game_loop
     
 #################################################################################
 # initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
@@ -227,7 +245,7 @@ generate_first_column:
     
 r_gen_loop:
     beq $t3, 3, gend_gen_loop
-    li   $v0, 42
+    li   $v0, 42                # random nummber generator function
     li   $a0, 0
     li   $a1, 6
     syscall                     # random index now in $a0
@@ -267,23 +285,24 @@ draw_loop_top:
 draw_loop_end:
     jr $ra
     
+
 #################################################################################
-# game loop
+# Keyboard Input
 #################################################################################
     
-game_loop:
-    # 1a. Check if key has been pressed
-    # lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
-    # lw $t8, 0($t0)                  # Load first word from keyboard
-    # beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+keyboard_input:     # t0 = keyboard address
+    lw $a0, 4($t0)  # load second word from keyboard (since the first word is the one that determines whether we are using the keyboard)
     
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (capsules)
-	# 3. Draw the screen
-	# 4. Sleep
-
-    # 5. Go back to Step 1
-    # j game_loop
-
-
+    beq $a0, 0x71, q_response     # Check if the key q was pressed
+    beq $a0, 0x61, move_left	# if the key a was pressed, move col left
+	beq $a0, 0x64, move_right	# if the key d was pressed, move col right
+	beq $a0, 0x73, move_down	# if the key s was pressed, jump to move tetromino down
+	beq $a0, 0x77, rotate		# if the key w was pressed, jump to rotate tetromino
+	beq $a0, 0x20, drop		# if the key w was pressed, jump to rotate tetromino
+	beq $a0, 0x70, pause
+	b game_sleep			# else, jump to sleep
+    
+q_response:
+	li $v0, 10      # quit gracefully
+	syscall
+	
