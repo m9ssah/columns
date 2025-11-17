@@ -296,12 +296,20 @@ keyboard_input:     # t0 = keyboard address
     beq $a0, 0x71, q_response     # Check if the key q was pressed
     beq $a0, 0x61, move_left	# if the key a was pressed, move col left
 	beq $a0, 0x64, move_right	# if the key d was pressed, move col right
-	beq $a0, 0x73, move_down	# if the key s was pressed, jump to move tetromino down
-	beq $a0, 0x77, rotate		# if the key w was pressed, jump to rotate tetromino
-	beq $a0, 0x20, drop		# if the key w was pressed, jump to rotate tetromino
-	beq $a0, 0x70, pause
-	b game_sleep			# else, jump to sleep
+	beq $a0, 0x73, move_down	# if the key s was pressed, move col down
+	beq $a0, 0x77, rotate		# if the key w was pressed, roate col
+	
+	b game_loop                 # else go back
+
+move_left:
     
+
+move_right:
+
+move_down:
+
+rotate:
+
 q_response:
 	li $v0, 10      # quit gracefully
 	syscall
