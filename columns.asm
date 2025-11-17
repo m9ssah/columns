@@ -63,7 +63,7 @@
 ##############################################################################
 
 # Active falling col:
-    initial:        .word 676
+    initial:        .word 548
     curr_colors:    .space 12       # because we are using 3 gems for each generated column
     
 # Game state:
