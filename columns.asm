@@ -39,7 +39,7 @@
         .word 0x003FFF85        # light green color
     
 # Game Scene Constants:
-	grid_w:     .word 12           # game field width
+	grid_w:     .word 13           # game field width
 	grid_h:     .word 24           # game field height
 	
 	unit_size:  .word 8            # gem size
@@ -63,7 +63,8 @@
 ##############################################################################
 
 # Active falling col:
-    initial:        .word 548
+    initial:        .word 552
+    curr_pos:       .word 552       # store the position of the first block of the current column
     curr_colors:    .space 12       # because we are using 3 gems for each generated column
     
 # Game state:
@@ -98,27 +99,8 @@ main:       # Initialize the game
     
     jal init_board
     jal init_game_field
-    jal generate_first_column
+    jal generate_column
     j game_loop
-    
-#################################################################################
-# game loop
-#################################################################################
-    
-game_loop:
-    # 1a. Check if key has been pressed
-    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
-    lw $t8, 0($t0)                  # Load first word from keyboard
-    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
-    
-    # 1b. Check which key has been pressed
-    # 2a. Check for collisions
-	# 2b. Update locations (capsules)
-	# 3. Draw the screen
-	# 4. Sleep
-
-    # 5. Go back to Step 1
-    # j game_loop
     
 #################################################################################
 # initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
@@ -136,7 +118,7 @@ row_loop:
     li $t2, 1              # tile_col = 1..18
 
 col_loop:
-    bgt $t2, 18, next_row
+    bgt $t2, 19, next_row
     
     # determines which color is next (to achieve checkered look)
     add  $t3, $t1, $t2     # sum of row and col
@@ -215,14 +197,14 @@ draw_game_field:
     li $t4, 0                           # loop variable
 
 draw_field_line:
-    beq $a0, $t4, field_line_end        # while t4 != 12:
+    beq $a0, $t4, field_line_end        # while t4 != 13:
     sw $a2, 0($t2)
     addi $t2, $t2, 4                    # move to next row
     addi $t4, $t4, 1                    # t4++
     j draw_field_line
 
 field_line_end:
-    addi $t2, $t2, 80
+    addi $t2, $t2, 76
     addi $t3, $t3, 1                    # t3++
     j draw_game_field
     
@@ -230,10 +212,10 @@ game_field_end:
     jr $ra
 
 #################################################################################
-# draw first column
+# draw new column
 #################################################################################
     
-generate_first_column:
+generate_column:
     move $t0, $s0     # base address 
     lw   $t1, initial   # starter position offset
     
@@ -285,6 +267,8 @@ draw_loop_top:
 draw_loop_end:
     jr $ra
     
+game_over:
+    # TODO: implement
 
 #################################################################################
 # Keyboard Input
@@ -301,16 +285,58 @@ keyboard_input:     # t0 = keyboard address
 	
 	b game_loop                 # else go back
 
-move_left:
-    
-
-move_right:
-
-move_down:
-
-rotate:
-
 q_response:
 	li $v0, 10      # quit gracefully
 	syscall
-	
+
+move_left:
+    jal check_a     # check for collision
+    
+    li $a1, -4      # desired shift value
+
+move_right:
+    jal check_d     # check for collision
+    
+    li $a1, 4      # desired shift value
+    
+    
+move_down:
+    jal check_s     # check for collision
+    
+    li $a1, 128      # desired shift value
+
+rotate:
+    # no need to check collisions because we are merely shuffling the inner colors.
+    
+
+#################################################################################
+# Collision Detection
+#################################################################################
+    
+check_a:
+
+check_d:
+
+check_s:
+
+#################################################################################
+# game loop
+#################################################################################
+
+
+
+game_loop:
+    # 1a. Check if key has been pressed
+    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    lw $t8, 0($t0)                  # Load first word from keyboard
+    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+    
+    # 1b. Check which key has been pressed
+    # 2a. Check for collisions
+	# 2b. Update locations (capsules)
+	# 3. Draw the screen
+	# 4. Sleep
+	li $v0, 32
+    li $a0, 5000
+    # 5. Go back to Step 1
+    j game_loop
