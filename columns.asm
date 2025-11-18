@@ -24,7 +24,7 @@
     ADDR_KBRD:  .word 0xffff0000
     
 # Colors:
-    black: 		.word 0x00000000        # black, misc
+    black: 		.word 0x001A1A1A        # black, used to check collisions + color of game field
     indigo:     .word 0x00432AFF        # indigo/purple color, gem
     cyan:       .word 0x006FFFFF        # cyan/celeste color, bg
     white:      .word 0x00FFFFFF        # white color, misc
@@ -63,7 +63,7 @@
 ##############################################################################
 
 # Active falling col:
-    initial:        .word 676
+    initial:        .word 548
     curr_colors:    .space 12       # because we are using 3 gems for each generated column
     
 # Game state:
@@ -297,7 +297,7 @@ keyboard_input:     # t0 = keyboard address
     beq $a0, 0x61, move_left	# if the key a was pressed, move col left
 	beq $a0, 0x64, move_right	# if the key d was pressed, move col right
 	beq $a0, 0x73, move_down	# if the key s was pressed, move col down
-	beq $a0, 0x77, rotate		# if the key w was pressed, roate col
+	beq $a0, 0x77, rotate		# if the key w was pressed, rotate col (we dont need to check collisions for this, merely shuffle the order of colors.
 	
 	b game_loop                 # else go back
 
