@@ -47,6 +47,9 @@
 	dspl_height:.word 256
 	
 	game_grid: .space 1248     # game grid area
+	
+	field_x0: .word 4      # leftmost field tile in VRAM
+    field_y0: .word 4      # topmost field tile in VRAM
     
 # Extra features (milestone 4,5):
     gravity_timer:   .word 0     # TODO change when implementing gravity
@@ -237,9 +240,9 @@ generate_new_column:
     la $a2, gem_palette     # gem array
     la $a3, curr_colors     # will store the 3 random colors in here
     
-    li $s3, 552             # tracking curr position
-    li $s4, 10              # tracking curr_x
-    li $s5, 4               # tracking curr_y
+    # li $s3, 552             # tracking curr position
+    li $s4, 6              # tracking curr_x
+    li $s5, 0               # tracking curr_y
     
     add $t1, $t0, $t1   # starting index to draw
     li $t3, 0   # loop var (0:2)
@@ -337,12 +340,15 @@ rotate:
     # compute v-ram address:
     move $t0, $s0       # display address
     la $a3, curr_colors # colors array
-    move $t4, $s4
-    move $t5, $s5
+    lw $t6, field_x0
+    lw $t7, field_y0
+    
+    add $t4, $s4, $t6         # screen_x = grid_x + field_x0
+    add $t5, $s5, $t7         # screen_y = grid_y + field_y0
+    
     sll $t4, $t4, 2
     sll $t5, $t5, 7
-    add $s3, $t4, $t5   # curr v-ram address
-    add $t0, $s3, $t0   # to draw
+    add $t0, $s3, $s0
     li $t6, 0           # loop var
     
     rotate_start:
@@ -390,14 +396,18 @@ update_column:
     # update curr position:
     add $s4, $s4, $a1   
     add $s5, $s5, $a2
-    #compute v-ram:
-    move $t4, $s4
-    move $t5, $s5
+    # compute v-ram:
+    lw $t6, field_x0
+    lw $t7, field_y0
     
-    sll $t4, $t4, 2
-    sll $t5, $t5, 7
-    add $s3, $t4, $t5   # curr v-ram address
-    add $t0, $s3, $t0   # to draw
+    add $t4, $s4, $t6      # screen_x = grid_x + field_x0
+    add $t5, $s5, $t7      # screen_y = grid_y + field_y0
+    
+    sll $t4, $t4, 2        # x * 4
+    sll $t5, $t5, 7        # y * 128
+    
+    add $s3, $t4, $t5
+    add $t0, $s3, $s0      # VRAM = base + offset
     
     la $a3, curr_colors # colors array
     li $t3, 0           # loop var
@@ -419,14 +429,18 @@ update_column_end:
 clear_column:       # overwrite curr column by recoloring it to black
     move $t0, $s0       # address display
     #compute v-ram:
-    move $t4, $s4
-    move $t5, $s5
+    lw $t6, field_x0
+    lw $t7, field_y0
     
-    sll $t4, $t4, 2
-    sll $t5, $t5, 7
-    add $s3, $t4, $t5   # curr v-ram address
+    add $t4, $s4, $t6      # screen_x = grid_x + field_x0
+    add $t5, $s5, $t7      # screen_y = grid_y + field_y0
     
-    add $t0, $s3, $t0   # to draw
+    sll $t4, $t4, 2        # x * 4
+    sll $t5, $t5, 7        # y * 128
+    
+    add $s3, $t4, $t5
+    add $t0, $s3, $s0      # VRAM = base + offset
+    
     lw $t2, black       # load black color
     li $t3, 0           # loop var
     
@@ -526,15 +540,17 @@ check_s:        # no need for loop, we only cheeck very last block of curr col
     jal read_grid
     lw $ra, 0($sp)
     addi $sp, $sp, 4
-    
+
+    lw $t1, black
     bne $v0, $zero, no_down
-    
+
     jr $ra
     
 no_down:
     j game_loop
 
 check_lock:   # checks whether we should freeze curr column and begin generating a new one
+
 
 #################################################################################
 # Collision Detection   a0 = x, a1 = y
