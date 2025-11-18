@@ -45,13 +45,8 @@
 	unit_size:  .word 8            # gem size
     dspl_width: .word 256
 	dspl_height:.word 256
-
-	frame_cols: .word 18
-	frame_rows: .word 30
 	
-	frame_x0:   .word 4        # offsets
-	frame_y0:   .word 132  
-    
+	game_grid: .space 1248     # game grid area
     
 # Extra features (milestone 4,5):
     gravity_timer:   .word 0     # TODO change when implementing gravity
@@ -98,7 +93,9 @@ main:       # Initialize the game
     
     jal init_board
     jal init_game_field
+    jal init_game_grid
     jal generate_new_column
+
     j game_loop
     
 #################################################################################
@@ -211,6 +208,25 @@ game_field_end:
     jr $ra
 
 #################################################################################
+# draw the (second) logic grid
+#################################################################################
+
+init_game_grid:
+    la $t0, game_grid     # pointer to grid
+    li $t1, 0
+    li $t2, 312           # 13 * 24 = 312 tiles
+
+init_grid_loop:
+    beq $t2, $zero, init_grid_end
+    sw $t1, 0($t0)
+    addi $t0, $t0, 4
+    addi $t2, $t2, -1
+    j init_grid_loop
+
+init_grid_end:
+    jr $ra
+
+#################################################################################
 # draw new column
 #################################################################################
     
@@ -293,35 +309,31 @@ q_response:
 	syscall
 
 move_left:
-    # jal check_a     # check for collision
-    
+    jal check_a     # check for collision
     li $a1, -1      # desired shift value (x-direction)
     li $a2, 0       # desired shift value (y-direciton)
     jal update_column
-    jal check_frozen
+    jal check_lock
     j game_loop
 
 move_right:
-    # jal check_d     # check for collision
-    
+    jal check_d     # check for collision
     li $a1, 1      # desired shift value (x-direciton)
     li $a2, 0       # desired shift value (y-direciton)
     jal update_column
-    jal check_frozen
+    jal check_lock
     j game_loop
     
 move_down:
-    # jal check_s     # check for collision
-    
+    jal check_s     # check for collision
     li $a1, 0   # desired shift value (x-direciton)
     li $a2, 1   # desired shift value (y-direciton)
     jal update_column
-    jal check_frozen
+    jal check_lock
     j game_loop
 
 rotate:
     jal rotate_colors
-    
     # compute v-ram address:
     move $t0, $s0       # display address
     la $a3, curr_colors # colors array
@@ -433,14 +445,108 @@ clear_column_end:
 #################################################################################
     
 check_a:
+    move $t4, $s4
+    move $t5, $s5
+    beq $t4, $zero, no_left     # misc
+    
+    addi $t4, $t4, -1
+    li $t3, 0
+    
+    left_loop_start:
+    beq $t3, 3, ok_left
+    add $a1, $t5, $t3       # load y
+    move $a0, $t4            # load x
+    
+    # call read grid (to identify the coordinate we must check)
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    jal read_grid
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $zero, no_left
+    
+    addi $t3, $t3, 1        # loop var
+    j left_loop_start
+
+ok_left:
+    jr $ra
+
+no_left:
+    j game_loop
+
 
 check_d:
-
-check_s:
-
-check_frozen:   # checks whether we should freeze curr column and begin generating a new one
-
+    move $t4, $s4
+    move $t5, $s5
+    lw   $t0, grid_w
+    addi $t0, $t0, -1       # t0 = grid_w - 1
+    beq  $t4, $t0, no_right
     
+    addi $t4, $t4, 1
+    li $t3, 0
+    
+    right_loop_start:
+    beq $t3, 3, ok_right
+    add $a1, $t5, $t3       # load y
+    move $a0, $t4            # load x
+    
+    # call read grid (to identify the coordinate we must check)
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    jal read_grid
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $zero, no_right
+    
+    addi $t3, $t3, 1        # loop var
+    j right_loop_start
+
+ok_right:
+    jr $ra
+
+no_right:
+    j game_loop
+
+check_s:        # no need for loop, we only cheeck very last block of curr col
+    move $t4, $s4
+    move $t5, $s5
+
+    lw   $t0, grid_h
+    addi $t0, $t0, -3
+    beq  $t5, $t0, no_down
+    
+    addi $a1, $t5, 3       # load y
+    move $a0, $t4      # load x
+    
+    # call read grid (to identify the coordinate we must check)
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    jal read_grid
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    bne $v0, $zero, no_down
+    
+    jr $ra
+    
+no_down:
+    j game_loop
+
+check_lock:   # checks whether we should freeze curr column and begin generating a new one
+
+#################################################################################
+# Collision Detection   a0 = x, a1 = y
+#################################################################################
+read_grid:
+    la  $t0, game_grid
+    mul $t1, $a1, $s1        # y * grid_w
+    add $t1, $t1, $a0        # y * grid_w + x
+    sll $t1, $t1, 2
+    add $t0, $t0, $t1
+    lw  $v0, 0($t0)
+    jr  $ra
     
 #################################################################################
 # game loop
