@@ -64,7 +64,6 @@
 
 # Active falling col:
     initial:        .word 552
-    curr_pos:       .word 552       # store the position of the first block of the current column
     curr_colors:    .space 12       # because we are using 3 gems for each generated column
     
 # Game state:
@@ -78,6 +77,9 @@
     # s0 - ADDR_DSPL
     # s1 - grid_w
     # s2 - grid_h
+    # s3 - curr_pos
+    # s4 - curr_x
+    # s5 - curr_y
     
 
 ##############################################################################
@@ -94,12 +96,9 @@ main:       # Initialize the game
     lw $s1, grid_w          # game field width = s1
     lw $s2, grid_h          # game field height = s2
     
-    lw $s3, frame_cols         
-    lw $s4, frame_rows
-    
     jal init_board
     jal init_game_field
-    jal generate_column
+    jal generate_new_column
     j game_loop
     
 #################################################################################
@@ -183,10 +182,10 @@ init_board_end:
 
 init_game_field:
     # starting from (5,5), we want to draw a 12x20 rectangle
-    move $t0, $s0       # t0 address display, i dont think this is necessary\
+    move $t0, $s0       # t0 address display, i dont think this is necessary
     addi $t2, $t0, 528  # initialize starting position
     
-    lw $a0 grid_w       # width of field  (12)
+    lw $a0 grid_w       # width of field  (13)
     lw $a1 grid_h       # height of field (24)
     lw $a2, black       # initialize field color
     
@@ -215,12 +214,16 @@ game_field_end:
 # draw new column
 #################################################################################
     
-generate_column:
+generate_new_column:
     move $t0, $s0     # base address 
-    lw   $t1, initial   # starter position offset
+    lw $t1, initial   # starter position offset
     
     la $a2, gem_palette     # gem array
     la $a3, curr_colors     # will store the 3 random colors in here
+    
+    li $s3, 552             # tracking curr position
+    li $s4, 10              # tracking curr_x
+    li $s5, 4               # tracking curr_y
     
     add $t1, $t0, $t1   # starting index to draw
     li $t3, 0   # loop var (0:2)
@@ -271,7 +274,7 @@ game_over:
     # TODO: implement
 
 #################################################################################
-# Keyboard Input
+# Keyboard Input        s3 - curr_pos, s4 - x, s5- - y, a3 - curr_color
 #################################################################################
     
 keyboard_input:     # t0 = keyboard address
@@ -290,25 +293,141 @@ q_response:
 	syscall
 
 move_left:
-    jal check_a     # check for collision
+    # jal check_a     # check for collision
     
-    li $a1, -4      # desired shift value
+    li $a1, -1      # desired shift value (x-direction)
+    li $a2, 0       # desired shift value (y-direciton)
+    jal update_column
+    jal check_frozen
+    j game_loop
 
 move_right:
-    jal check_d     # check for collision
+    # jal check_d     # check for collision
     
-    li $a1, 4      # desired shift value
-    
+    li $a1, 1      # desired shift value (x-direciton)
+    li $a2, 0       # desired shift value (y-direciton)
+    jal update_column
+    jal check_frozen
+    j game_loop
     
 move_down:
-    jal check_s     # check for collision
+    # jal check_s     # check for collision
     
-    li $a1, 128      # desired shift value
+    li $a1, 0   # desired shift value (x-direciton)
+    li $a2, 1   # desired shift value (y-direciton)
+    jal update_column
+    jal check_frozen
+    j game_loop
 
 rotate:
-    # no need to check collisions because we are merely shuffling the inner colors.
+    jal rotate_colors
     
+    # compute v-ram address:
+    move $t0, $s0       # display address
+    la $a3, curr_colors # colors array
+    move $t4, $s4
+    move $t5, $s5
+    sll $t4, $t4, 2
+    sll $t5, $t5, 7
+    add $s3, $t4, $t5   # curr v-ram address
+    add $t0, $s3, $t0   # to draw
+    li $t6, 0           # loop var
+    
+    rotate_start:
+        beq $t6, 3, rotate_end
+        sll $t9, $t6, 2     # load curr_colors[i]
+        add $t9, $t9, $a3
+        lw $t8, 0($t9)
+        sw $t8, 0($t0)      # draw gem 
+        addi $t0, $t0, 128  # move to next block
+        addi $t6, $t6, 1
+        j rotate_start
+        
+    rotate_end:
+        j game_loop
 
+################################################################################
+# rotate_colors helper
+################################################################################
+rotate_colors:
+    la $t0, curr_colors
+    
+    lw $t1, 0($t0)   # top
+    lw $t2, 4($t0)   # mid
+    lw $t3, 8($t0)   # bottom
+
+    sw $t2, 0($t0)   # new top
+    sw $t3, 4($t0)   # new mid
+    sw $t1, 8($t0)   # new bottom
+
+    jr $ra
+
+#################################################################################
+# Update + Clear
+#################################################################################
+update_column:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    jal clear_column
+    
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    
+    move $t0, $s0   # address display
+    # update curr position:
+    add $s4, $s4, $a1   
+    add $s5, $s5, $a2
+    #compute v-ram:
+    move $t4, $s4
+    move $t5, $s5
+    
+    sll $t4, $t4, 2
+    sll $t5, $t5, 7
+    add $s3, $t4, $t5   # curr v-ram address
+    add $t0, $s3, $t0   # to draw
+    
+    la $a3, curr_colors # colors array
+    li $t3, 0           # loop var
+    
+update_column_loop:
+    beq $t3, 3, update_column_end
+    
+    sll $t9, $t3, 2     # load curr_colors[i]
+    add $t9, $t9, $a3
+    lw $t8, 0($t9)
+    sw $t8, 0($t0)      # draw gem 
+    addi $t0, $t0, 128  # move to next block
+    addi $t3, $t3, 1    # increment loop var
+    j update_column_loop
+
+update_column_end:
+    jr $ra
+
+clear_column:       # overwrite curr column by recoloring it to black
+    move $t0, $s0       # address display
+    #compute v-ram:
+    move $t4, $s4
+    move $t5, $s5
+    
+    sll $t4, $t4, 2
+    sll $t5, $t5, 7
+    add $s3, $t4, $t5   # curr v-ram address
+    
+    add $t0, $s3, $t0   # to draw
+    lw $t2, black       # load black color
+    li $t3, 0           # loop var
+    
+clear_column_start:
+    beq $t3, 3, clear_column_end
+    sw $t2, 0($t0)      # color block in black
+    addi $t0, $t0, 128
+    addi $t3, $t3, 1
+    j clear_column_start
+
+clear_column_end:
+    jr $ra
+    
 #################################################################################
 # Collision Detection
 #################################################################################
@@ -319,11 +438,13 @@ check_d:
 
 check_s:
 
+check_frozen:   # checks whether we should freeze curr column and begin generating a new one
+
+    
+    
 #################################################################################
 # game loop
 #################################################################################
-
-
 
 game_loop:
     # 1a. Check if key has been pressed
