@@ -5,3 +5,7 @@
 - Gravity
 - Levels (by pressing 1/2/3)
 - Matching Animation (White flash)
+- Pause Screen
+- Sound FX
+- Game Over Screen
+- Menu Screen

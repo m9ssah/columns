@@ -57,11 +57,11 @@
     message_grid:  .space 4096 # grid for the message what to store in the grid
     
 # Extra features (milestone 4,5):
-    gravity_timer:   .word 0     # TODO change when implementing gravity
-    music_timer:     .word 0     # TODO change when implementing soundfx/theme music
-    pause_recorder:  .word 0     # 1 = pause
-    game_started:    .word 0     # haven't start: 0; start level: 1,2,3
-
+    gravity_timer:          .word 0
+    music_timer:            .word 0     # TODO change when implementing soundfx/theme music
+    gameover_music_timer:   .word 4820 
+    pause_recorder:         .word 0     # 1 = pause
+    game_started:           .word 0     # haven't start: 0; start level: 1,2,3
 
 ##############################################################################
 # Mutable Data
@@ -73,7 +73,6 @@
     
 # Game state:
     score:          .word 0
-    jewels:         .word 0
     match_counter: .word 0 # count the total number of the cells matched
 
 ##############################################################################
@@ -106,10 +105,12 @@ main:       # Initialize the game
     jal init_message_grid # UPDATE
     jal init_game_field
     jal init_game_grid
+
     jal generate_new_column
 
     j game_loop
-    
+
+
 #################################################################################
 # initialize board frame (checkered 1x1 alternating color squares) ONLY RUNS ONCE
 #################################################################################
@@ -332,6 +333,7 @@ draw_loop_top:
     
     # store gem color
     sw $t8, 0($t6)        # draw the gem
+
     
     addi $t3, $t3, 1
     j draw_loop_top
@@ -340,6 +342,13 @@ draw_loop_end:
     jr $ra
     
 game_over:
+    li $v0, 33
+    li $a0, 70        # pitch
+    li $a1, 700       # duration
+    li $a2, 89        # instrument
+    li $a3, 127       # volume
+    syscall
+    
     li  $v0, 10
     syscall
 
@@ -401,6 +410,13 @@ q_response:
 	syscall
 
 move_left:
+    li $v0,31
+    li $a0,64       # pitch
+    li $a1,300     # duration
+    li $a2,4       # instrument
+    li $a3,80     # vol
+    syscall
+
     jal check_a     # check for collision
     li $a1, -1      # desired shift value (x-direction)
     li $a2, 0       # desired shift value (y-direciton)
@@ -409,6 +425,13 @@ move_left:
     j game_loop
 
 move_right:
+    li $v0,31
+    li $a0,64       # pitch
+    li $a1,300     # duration
+    li $a2,4       # instrument
+    li $a3,80     # vol
+    syscall
+    
     jal check_d     # check for collision
     li $a1, 1      # desired shift value (x-direciton)
     li $a2, 0       # desired shift value (y-direciton)
@@ -430,6 +453,13 @@ move_down:
     j game_loop
 
 rotate:
+    li $v0,31
+    li $a0,60       # pitch
+    li $a1,400      # duration
+    li $a2,4        # instrument
+    li $a3,80      # volume
+    syscall
+
     jal rotate_colors
     # compute v-ram address:
     move $t0, $s0       # display address
@@ -725,6 +755,13 @@ lock_landed_column: #after landand, we need
 #   curr_colors[2] = bottom color
 #################################################################################
 lock_column:
+    li $v0,31
+    li $a0,76         # F#5
+    li $a1,500        # long soft decay
+    li $a2,98         # Crystal FX (perfect match)
+    li $a3,100
+    syscall
+    
     la  $t0, curr_colors   # t0 curr_colors base
     la  $t1, game_grid     # t1 game_grid base
     li  $t2, 0             # initialize i = 0 (for index i = 0,1,2)
@@ -760,9 +797,7 @@ lock_column_done:
     jr   $ra
 
 #################################################################################
-#################################################################################
 # function: match anc cancellling
-#################################################################################
 #################################################################################
 match_and_fall:
     # store the return address
@@ -1174,6 +1209,14 @@ flash_set_white:
     li   $t3, 0              # row = 0
 
 fsw_row_loop:
+
+    li $v0,31
+    li $a0,55         # pitch
+    li $a1,300        # duration
+    li $a2,89         # instrument
+    li $a3,125         # volume
+    syscall
+
     bge  $t3, $s2, fsw_done
 
     li   $t4, 0              # col = 0
@@ -1352,7 +1395,6 @@ erase_mark_skip:
 
 erase_mark_done:
     jr  $ra
-
 
 #################################################################################
 # redraw_grid
@@ -1683,16 +1725,14 @@ game_loop:
     
     #################################
     # test function: match number
-    # this should be delete after checking all functions that related to match_counter are correct
-    la   $t1, match_counter   # $t1 = match_counter address
-    lw   $a0, 0($t1)          # $a0 = match_counter value
-    li   $v0, 1               # syscall 1 = print integer
-    syscall                  
-
-    # \n
-    li   $v0, 11      # syscall 11 = print char
-    li   $a0, 10      # ASCII 10 = '\n'
-    syscall
+    # ONLY UNCOMMENT WHEN TESTING
+    # la   $t1, match_counter   # $t1 = match_counter address
+    # lw   $a0, 0($t1)          # $a0 = match_counter value
+    # li   $v0, 1               # syscall 1 = print integer
+    # syscall                  
+    # li   $v0, 11      # syscall 11 = print char
+    # li   $a0, 10      # ASCII 10 = '\n'
+    # syscall
     #################################
     
     # 5. Go back to Step 1
