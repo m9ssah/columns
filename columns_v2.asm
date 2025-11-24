@@ -34,7 +34,7 @@
     gem_palette:
         .word 0x001C1A8E        # penn blue/navy color
         .word 0x00FF0084        # violet/pink
-        .word 0x00FF7DFB        # pink
+        .word 0x00FF83FB        # pink
         .word 0x00FFA228        # orange
         .word 0x00F7D111        # mustard/yellow
         .word 0x003FFF85        # light green color
@@ -188,7 +188,6 @@
     # s3 - curr_pos
     # s4 - curr_x
     # s5 - curr_y (the top cell)
-    
 
 ##############################################################################
 # Code
@@ -196,8 +195,6 @@
 	.text
 	.globl main
 
-    # Run the game
-    
 main:
     lw $s0, ADDR_DSPL
 
@@ -212,7 +209,6 @@ main:
     jal init_scene
 
     j game_loop
-
 
 #################################################################################
 # initialize scene function
@@ -235,7 +231,6 @@ scene_loop:
     
 scene_done:  
     jr $ra
-    
     
 #################################################################################
 # clear screen
@@ -267,7 +262,7 @@ init_board:
     li $t1, 1              # tile_row = 1..30
 
 row_loop:
-    bgt $t1, 30, init_board_end
+    bgt $t1, 30, init_message_grid
     li $t2, 1              # tile_col = 1..18
 
 col_loop:
@@ -327,62 +322,6 @@ next_row:
     addi $t1, $t1, 1       # next tile row
     j row_loop
 
-init_board_end:
-    jr $ra
-
-#################################################################################
-# initialize game field ONLY RUNS ONCE
-#################################################################################
-
-init_game_field:
-    # starting from (5,5), we want to draw a 12x20 rectangle
-    move $t0, $s0       # t0 address display, i dont think this is necessary
-    addi $t2, $t0, 528  # initialize starting position
-    
-    lw $a0 grid_w       # width of field  (13)
-    lw $a1 grid_h       # height of field (24)
-    lw $a2, black       # initialize field color
-    
-    li $t3, 0           # loop variable
-
-draw_game_field:
-    beq $a1, $t3, game_field_end        # while t3 != 24:
-    li $t4, 0                           # loop variable
-
-draw_field_line:
-    beq $a0, $t4, field_line_end        # while t4 != 13:
-    sw $a2, 0($t2)
-    addi $t2, $t2, 4                    # move to next row
-    addi $t4, $t4, 1                    # t4++
-    j draw_field_line
-
-field_line_end:
-    addi $t2, $t2, 76
-    addi $t3, $t3, 1                    # t3++
-    j draw_game_field
-    
-game_field_end:
-    jr $ra
-
-#################################################################################
-# draw the (second) logic grid
-#################################################################################
-
-init_game_grid:
-    la $t0, game_grid     # pointer to grid
-    li $t1, 0
-    li $t2, 312           # 13 * 24 = 312 tiles
-
-init_grid_loop:
-    beq $t2, $zero, init_grid_end
-    sw $t1, 0($t0)
-    addi $t0, $t0, 4
-    addi $t2, $t2, -1
-    j init_grid_loop
-
-init_grid_end:
-    jr $ra
-
 #################################################################################
 # UPDATE
 # initialize message_grid for pause
@@ -394,7 +333,7 @@ init_message_grid:
     li $t3, 0 # t3 = row
 
 init_message_grid_row_loop:
-    bge $t3, 32, init_message_grid_end
+    bge $t3, 32, init_game_field
     
     li $t4, 0 # t4 col
     
@@ -422,8 +361,54 @@ init_message_grid_next_row:
     addi $t3, $t3, 1
     j    init_message_grid_row_loop
 
-init_message_grid_end:
-    jr $ra
+#################################################################################
+# initialize game field ONLY RUNS ONCE
+#################################################################################
+
+init_game_field:
+    # starting from (5,5), we want to draw a 12x20 rectangle
+    move $t0, $s0       # t0 address display, i dont think this is necessary
+    addi $t2, $t0, 528  # initialize starting position
+    
+    lw $a0 grid_w       # width of field  (13)
+    lw $a1 grid_h       # height of field (24)
+    lw $a2, black       # initialize field color
+    
+    li $t3, 0           # loop variable
+
+draw_game_field:
+    beq $a1, $t3, init_game_grid        # while t3 != 24:
+    li $t4, 0                           # loop variable
+
+draw_field_line:
+    beq $a0, $t4, field_line_end        # while t4 != 13:
+    sw $a2, 0($t2)
+    addi $t2, $t2, 4                    # move to next row
+    addi $t4, $t4, 1                    # t4++
+    j draw_field_line
+
+field_line_end:
+    addi $t2, $t2, 76
+    addi $t3, $t3, 1                    # t3++
+    j draw_game_field
+    
+
+#################################################################################
+# draw the (second) logic grid
+#################################################################################
+
+init_game_grid:
+    la $t0, game_grid     # pointer to grid
+    li $t1, 0
+    li $t2, 312           # 13 * 24 = 312 tiles
+
+init_grid_loop:
+    beq $t2, $zero, generate_new_column
+    sw $t1, 0($t0)
+    addi $t0, $t0, 4
+    addi $t2, $t2, -1
+    j init_grid_loop
+
 #################################################################################
 # draw new column
 #################################################################################
@@ -547,13 +532,7 @@ level1:
     sw $t1, game_scene       # now in gameplay
     
     jal clear_screen
-    
     jal init_board
-    jal init_message_grid
-    jal init_game_field
-    jal init_game_grid
-
-    jal generate_new_column
 
     j general_gravity_setting1
     
@@ -564,13 +543,7 @@ level2:
     sw $t1, game_scene       # now in gameplay
     
     jal clear_screen
-    
     jal init_board
-    jal init_message_grid
-    jal init_game_field
-    jal init_game_grid
-
-    jal generate_new_column
 
     j general_gravity_setting2
     
@@ -581,13 +554,7 @@ level3:
     sw $t1, game_scene       # now in gameplay
     
     jal clear_screen
-    
     jal init_board
-    jal init_message_grid
-    jal init_game_field
-    jal init_game_grid
-
-    jal generate_new_column
 
     j general_gravity_setting3
 
