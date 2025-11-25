@@ -1053,7 +1053,19 @@ game_over:
     li $a3, 127       # volume
     syscall
     
-    li  $v0, 10
+    # sleep for .5 ms
+    li $v0, 32
+    li $a0, 500
+    syscall
+    
+    lw $t0, ADDR_KBRD               # $t0 = base address for keyboard
+    lw $t8, 0($t0)                  # Load first word from keyboard
+    li $t1, 0
+    sw $t1, game_scene              # change game scene to 0 so that it goes to the level screen instead of assuming we are in gameplay mode
+    beq $t8, 1, keyboard_input      # If first word 1, key is pressed
+    
+    # else exit:
+    li $v0, 10
     syscall
 
 #################################################################################
