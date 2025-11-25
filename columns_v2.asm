@@ -61,6 +61,10 @@
     game_scene:             .word 0     # 0 = start menu, 1 = level menu, 2 = game play, 3 = game over
     pause_recorder:         .word 0     # 1 = pause
     game_started:           .word 0     # haven't start: 0; start level: 1,2,3
+    update_general_gravity_recorder: .word 0
+    gravity_setting1: .word 25
+    gravity_setting2: .word 13
+    gravity_setting3: .word 5
     
 # menu screen:
 
@@ -2285,7 +2289,8 @@ general_gravity_setting1:
     sw   $t2, 0($t1)        # update gravity_timer++ into gravity_timer
 
     # setting the frequency of frames to update
-    li   $t3, 25
+    la   $t4, gravity_setting1
+    lw   $t3, 0($t4)
 
     # no enough frames: continue
     blt  $t2, $t3, general_gravity_return
@@ -2295,6 +2300,7 @@ general_gravity_setting1:
 
     # column move down
     j    move_down   
+    
 general_gravity_setting2:
     la  $t0, game_started
     li  $t1, 2
@@ -2306,7 +2312,8 @@ general_gravity_setting2:
     sw   $t2, 0($t1)        # update gravity_timer++ into gravity_timer
 
     # setting the frequency of frames to update
-    li   $t3, 13
+    la   $t4, gravity_setting2
+    lw   $t3, 0($t4)
 
     # no enough frames: continue
     blt  $t2, $t3, general_gravity_return
@@ -2316,6 +2323,7 @@ general_gravity_setting2:
 
     # column move down
     j    move_down   
+    
 general_gravity_setting3:
     la  $t0, game_started
     li  $t1, 3
@@ -2327,7 +2335,8 @@ general_gravity_setting3:
     sw   $t2, 0($t1)        # update gravity_timer++ into gravity_timer
 
     # setting the frequency of frames to update
-    li   $t3, 5
+    la   $t4, gravity_setting3
+    lw   $t3, 0($t4)
 
     # no enough frames: continue
     blt  $t2, $t3, general_gravity_return
@@ -2336,10 +2345,89 @@ general_gravity_setting3:
     sw   $zero, 0($t1) 
 
     # column move down
-    j    move_down   
+    j    move_down 
+    
 general_gravity_return:
     jr   $ra
 
+update_general_gravity:
+    la $t0, update_general_gravity_recorder
+    lw $t1, 0($t0)
+    addi $t1, $t1, 1
+    sw $t1, 0($t0) # update update_general_gravity_recorder
+    
+    beq $t1, 10, update_general_gravity1
+    beq $t1, 20, update_general_gravity2
+    beq $t1, 30, update_general_gravity3
+    beq $t1, 40, update_general_gravity4
+
+    #otherwise
+    jr   $ra
+update_general_gravity1:
+    la $t0, gravity_setting1
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting2
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting3
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    j update_general_gravity
+update_general_gravity2:
+    la $t0, gravity_setting1
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting2
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting3
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    j update_general_gravity
+update_general_gravity3:
+    la $t0, gravity_setting1
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting2
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting3
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    j update_general_gravity
+update_general_gravity4:
+    la $t0, gravity_setting1
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    la $t0, gravity_setting2
+    lw $t1, 0($t0)
+    addi $t1, $t1, -1
+    sw $t1, 0($t0) 
+
+    j update_general_gravity
+
+  
 #################################################################################
 # Collision Detection   a0 = x, a1 = y
 #################################################################################
@@ -2487,9 +2575,9 @@ game_loop:
     beq $t2, 1, loop_level_select
     beq $t2, 2, loop_gameplay
     beq $t2, 3, loop_game_over
-
-	jal general_gravity
-
+    
+    jal general_gravity
+    
     # Sleep ~60FPS
     li  $v0, 32 # call sleep syscall
     li  $a0, 17 # sleep 17 ms
@@ -2505,6 +2593,7 @@ game_loop:
     # li   $v0, 11      # syscall 11 = print char
     # li   $a0, 10      # ASCII 10 = '\n'
     # syscall
+
     
     j game_loop
     
@@ -2515,11 +2604,21 @@ loop_level_select:
     j game_loop
 
 loop_gameplay:
+    jal update_general_gravity
     jal general_gravity
 
     li $v0, 32
     li $a0, 17
     syscall
+    
+    # test for increasing speed
+    # la   $t1, gravity_setting2   # $t1 = match_counter address
+    # lw   $a0, 0($t1)          # $a0 = match_counter value
+    # li   $v0, 1               # syscall 1 = print integer
+    # syscall
+    # li   $v0, 11      # syscall 11 = print char
+    # li   $a0, 10      # ASCII 10 = '\n'
+    # syscall
 
     j game_loop
     
