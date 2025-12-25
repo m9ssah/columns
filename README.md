@@ -1,6 +1,5 @@
 # **Columns**
-*NOTE: dont forget to remove bitmap_display.asm and keyboard when done*
-## Complete Remake of Columns (retro arcade game) using *Assembly*
+## Complete Remake of Columns (retro arcade game) using *Assembly MIPS*
 *Note: To restart game, press enter again*
 ### Features:
 - Gravity

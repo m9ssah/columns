@@ -1,12 +1,3 @@
-################# CSC258 Assembly Final Project ###################
-# This file contains our implementation of Columns.
-#
-# Student 1: Massah Arafeh, 1011325745
-# Student 2: Name, Student Number (if applicable)
-#
-# We assert that the code submitted here is entirely our own 
-# creation, and will indicate otherwise when it is not.
-#
 ######################## Bitmap Display Configuration ########################
 # - Unit width in pixels: 8
 # - Unit height in pixels: 8
